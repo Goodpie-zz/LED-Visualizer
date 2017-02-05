@@ -9,6 +9,7 @@ import android.widget.Button;
 
 import com.app.reallygoodpie.ledvisualalizer.models.ColorGridModel;
 import com.app.reallygoodpie.ledvisualalizer.R;
+import com.app.reallygoodpie.ledvisualalizer.views.ColorGridItem;
 
 public class ColorGridAdapter extends BaseAdapter {
 
@@ -53,7 +54,7 @@ public class ColorGridAdapter extends BaseAdapter {
             convertView = mInflater.inflate(R.layout.column_element, null);
 
             viewHolder = new ViewHolder();
-            viewHolder.colorGridElement = (Button) convertView.findViewById(R.id.color_element_button);
+            viewHolder.colorGridElement = (ColorGridItem) convertView.findViewById(R.id.color_element_button);
 
             convertView.setTag(viewHolder);
         }
@@ -67,12 +68,11 @@ public class ColorGridAdapter extends BaseAdapter {
         int color = colorGrid.get(position);
         viewHolder.colorGridElement.setBackgroundColor(color);
 
-
         return convertView;
     }
 
     private class ViewHolder
     {
-        Button colorGridElement;
+        ColorGridItem colorGridElement;
     }
 }

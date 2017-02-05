@@ -2,6 +2,7 @@ package com.app.reallygoodpie.ledvisualalizer.models;
 
 
 import android.graphics.Color;
+import android.support.annotation.ColorInt;
 
 public class ColorGridModel {
 
@@ -50,8 +51,8 @@ public class ColorGridModel {
      */
     public int get(int index)
     {
-        int row = index / 16;
-        int column = index % 16;
+        int row = index / ROWS;
+        int column = index % COLUMNS;
         return get(row, column);
     }
 
@@ -63,5 +64,12 @@ public class ColorGridModel {
     public int getSize()
     {
         return COLUMNS * ROWS;
+    }
+
+    public void setColor(@ColorInt int color, int index)
+    {
+        int row = index / ROWS;
+        int column = index % COLUMNS;
+        colors[row][column] = color;
     }
 }

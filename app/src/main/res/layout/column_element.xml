@@ -5,9 +5,12 @@
     android:layout_height="match_parent"
     android:padding="1dp">
 
-    <Button
+    <com.app.reallygoodpie.ledvisualalizer.views.ColorGridItem
         android:id="@+id/color_element_button"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
+
+    </com.app.reallygoodpie.ledvisualalizer.views.ColorGridItem>
+
 
 </com.app.reallygoodpie.ledvisualalizer.views.ColorGridItem>
