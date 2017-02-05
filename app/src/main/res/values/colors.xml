@@ -24,10 +24,11 @@
         <item>@color/md_brown_500</item>
         <item>@color/md_grey_500</item>
         <item>@color/md_blue_grey_500</item>
-        <item>#FFFFFF</item>
+        <item>@color/md_white</item>
     </array>
 
     <!--reds-->
+    <color name="md_white">#FFFFFF</color>
     <color name="md_red_50">#FFEBEE</color>
     <color name="md_red_100">#FFCDD2</color>
     <color name="md_red_200">#EF9A9A</color>
