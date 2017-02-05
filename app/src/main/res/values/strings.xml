@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">LED Visualalizer</string>
+    <string name="save">Save</string>
+    <string name="change_color">Change Color</string>
+    <string name="enable_brush">Enable Brush</string>
+    <string name="brush_color">Brush Color</string>
 </resources>
