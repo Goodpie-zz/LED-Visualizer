@@ -19,14 +19,14 @@ public class ColorGridModel {
     /**
      * Set the default color for each index of the array
      */
-    public void init()
+    public void init(@ColorInt int color)
     {
         for (int y = 0; y < ROWS; y ++)
         {
             for (int x = 0; x < COLUMNS; x ++)
             {
-                // Default the colors to blue
-                colors[y][x] = Color.BLUE;
+                // Default the color
+                colors[y][x] = color;
             }
         }
     }
