@@ -3,6 +3,7 @@ package com.app.reallygoodpie.ledvisualalizer;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -12,6 +13,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,12 +27,16 @@ import android.widget.Toast;
 
 import com.app.reallygoodpie.ledvisualalizer.adapters.ColorGridAdapter;
 import com.app.reallygoodpie.ledvisualalizer.models.ColorGridModel;
+import com.app.reallygoodpie.ledvisualalizer.services.LEDBluetoothService;
 import com.thebluealliance.spectrum.SpectrumDialog;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
 
@@ -42,7 +48,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ColorGridModel currentGrid;
     private int currentGlobalColor;
     private Map<Integer, Integer> colorMap;
-    private String connectedDevice;
+    private BluetoothDevice connectedDevice;
 
     // UI Elements
     private GridView gridView;
@@ -54,13 +60,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ColorGridAdapter mAdapter;
     private BluetoothAdapter mBluetoothAdapter;
 
-
+    private String UUID;
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         mContext = getApplicationContext();
+
+        // Get UUID
+        UUID = java.util.UUID.randomUUID().toString();
 
         // Initialize bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -164,6 +173,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    private void setup() {
+        Log.d(TAG, "setup()");
+
+        //
+    }
+
     /**
      * Checks if the bluetooth on the device is enabled
      * If not enabled, create request to enable bluetooth
@@ -196,7 +211,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (connectedDevice == null)
         {
             // Get all paired devices
-            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+            final Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
 
             if (pairedDevices.size() > 0) {
                 // Map to handle name and mac address
@@ -225,10 +240,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                 // Create the adapter
                 List<String> deviceNameList = new ArrayList<>();
-                for (String key : deviceMap.keySet())
+
+                // Create array of device names
+                for (Object device : pairedDevices.toArray())
                 {
-                    deviceNameList.add(key);
+                    BluetoothDevice key = (BluetoothDevice) device;
+                    deviceNameList.add(key.getName());
                 }
+
                 final ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, deviceNameList);
                 deviceListView.setAdapter(adapter);
 
@@ -239,6 +258,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     @Override
                     public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
                         // Handled on list view on click listener
+
                     }
 
                     @Override
@@ -252,13 +272,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     @Override
                     public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
 
-                        // Extract information about the selected device
-                        String selectedDevice = adapter.getItem(i);
-                        String selectedDeviceMACAddress = deviceMap.get(selectedDevice);
-                        Log.i(TAG, "Selected device " + selectedDevice + ":" + selectedDeviceMACAddress);
-
-                        // Set the globally connected device
-                        connectedDevice = selectedDeviceMACAddress;
+                        int ii = 0;
+                        for (BluetoothDevice pairedDevice : pairedDevices) {
+                            if (ii == i) {
+                                connectedDevice = pairedDevice;
+                                Log.i(TAG, "Selected device " + connectedDevice.getName() +
+                                        ":" + connectedDevice.getAddress());
+                                break;
+                            }
+                        }
 
                         // Dismiss the dialog
                         alertDialog.dismiss();
@@ -274,6 +296,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    private void sendViaBluetooth()
+    {
+        if (connectedDevice != null)
+        {
+            BluetoothConnectThread connectThread = new BluetoothConnectThread(connectedDevice, UUID);
+            connectThread.run();
+        }
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -331,5 +361,60 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
+    private class BluetoothConnectThread extends Thread {
+
+        private final BluetoothSocket mSocket;
+        private final BluetoothDevice mDevice;
+
+        private String UUID;
+
+        public BluetoothConnectThread(BluetoothDevice device, String UUID)
+        {
+            // Use a temporary object that is later assigned to mSocket because mSocket is final
+            BluetoothSocket tmp = null;
+
+            this.mDevice = device;
+            this.UUID = UUID;
+
+            // Attempt to create a socket
+            try {
+                tmp = mDevice.createRfcommSocketToServiceRecord(java.util.UUID.fromString(UUID));
+            } catch (IOException e) {
+                Log.e(TAG, "Socket's create() method failed", e);
+            }
+
+            mSocket = tmp;
+        }
+
+        public void run() {
+
+            try {
+                // Connect to the remote device through the socket. This call blocks until it
+                // succeeds or throws an exception
+                mSocket.connect();
+            } catch (IOException e) {
+                // Unable to connect; close the socket and return
+                try {
+                    mSocket.close();
+                } catch (IOException e1) {
+                    Log.e(TAG, "Could not close the client socket", e1);
+                }
+                return;
+            }
+
+
+        }
+
+        public void cancel() {
+            try {
+                mSocket.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Could not close the client socket", e);
+            }
+        }
+    }
 
 }
+
+
+
