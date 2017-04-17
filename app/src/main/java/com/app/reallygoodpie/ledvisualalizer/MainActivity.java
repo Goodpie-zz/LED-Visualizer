@@ -1,9 +1,11 @@
 package com.app.reallygoodpie.ledvisualalizer;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.Context;
-import android.support.annotation.ColorInt;
+import android.content.Intent;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -18,7 +20,10 @@ import com.app.reallygoodpie.ledvisualalizer.adapters.ColorGridAdapter;
 import com.app.reallygoodpie.ledvisualalizer.models.ColorGridModel;
 import com.pes.androidmaterialcolorpickerdialog.ColorPicker;
 
+import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
 
@@ -37,6 +42,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private Context mContext;
     private ColorGridAdapter mAdapter;
+
+    private BluetoothAdapter mBluetoothAdapter;
+    private BluetoothDevice mDevice;
+    private ConnectThread mConnectThread;
+
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -61,7 +71,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         fillButton = (Button) findViewById(R.id.fill_button);
         fillButton.setOnClickListener(this);
 
-        // Set the default color to blue
+        saveButton = (Button) findViewById(R.id.save_button);
+        saveButton.setOnClickListener(this);
+
+        // Set the default color to green
         currentGlobalColor = ContextCompat.getColor(mContext, R.color.md_green_500);
 
         // Initialize the grid
@@ -126,7 +139,108 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 currentGrid.init(currentGlobalColor);
                 mAdapter.notifyDataSetChanged();
                 break;
+            case R.id.save_button:
+                Log.i(TAG, "Saving...");
+                connectBluetooth();
+                break;
         }
+    }
+
+    public void initBluetooth()
+    {
+        // Check if bluetooth can be enabled
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter == null)
+        {
+            // Device is not supported
+            Toast.makeText(mContext, "Device does not support bluetooth", Toast.LENGTH_SHORT).show();
+        }
+
+        // Check if bluetooth is enabled
+        if (!mBluetoothAdapter.isEnabled())
+        {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, 1);
+        }
+
+        // Discover Devices
+        // Assume all other devices are disconnected
+        Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+        if (pairedDevices.size() > 0)
+        {
+            for (BluetoothDevice device : pairedDevices)
+            {
+                mDevice = device;
+            }
+        }
+
+
+
+    }
+
+    public void connectBluetooth()
+    {
+        Toast.makeText(mContext, "Attempting to connect to device...", Toast.LENGTH_LONG).show();
+        // Ensure we have a device to connect to
+        if (mDevice == null)
+        {
+            initBluetooth();
+        }
+
+        Toast.makeText(mContext, "Connected to: " + mDevice.getName(), Toast.LENGTH_LONG).show();
+        mConnectThread = new ConnectThread(mDevice);
+        mConnectThread.start();
+    }
+
+    private class ConnectThread extends Thread {
+
+        private static final String TAG = "ConnectThread";
+
+        private final BluetoothSocket mSocket;
+        private final BluetoothDevice mDevice;
+        private final UUID MY_UUID;
+
+        public ConnectThread(BluetoothDevice device)
+        {
+            BluetoothSocket tmp = null;
+            MY_UUID = UUID.randomUUID();
+            mDevice = device;
+
+            try {
+                tmp = device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to create BluetoothSocket");
+            }
+
+            mSocket = tmp;
+        }
+
+        public void run()
+        {
+            mBluetoothAdapter.cancelDiscovery();
+            try {
+                mSocket.connect();
+            } catch (IOException connectException) {
+                try {
+                    mSocket.close();
+                } catch (IOException closeException) {
+                    Log.e(TAG, "run: Failed to close socket exception");
+                }
+            }
+        }
+
+        public void cancel()
+        {
+            try
+            {
+                mSocket.close();
+            }
+            catch (IOException e)
+            {
+                Log.e(TAG, "cancel: Failed to close socket exception");
+            }
+        }
+
     }
 
 
