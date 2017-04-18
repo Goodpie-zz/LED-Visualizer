@@ -71,16 +71,10 @@
                 android:text="@string/fill"/>
 
             <Button
-                android:text="@string/save"
+                android:id="@+id/connect_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:id="@+id/save_button" />
-
-            <ImageView
-                android:id="@+id/imageView"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:srcCompat="@mipmap/ic_launcher" />
+                android:text="@string/connect" />
 
         </LinearLayout>
 

@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.Message;
 import android.support.v4.content.ContextCompat;
@@ -34,6 +35,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public static final String APP_NAME = "com.brandyn.LEDVisualizer";
     private static final UUID MY_UUID = java.util.UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 
+    private static final String FILL_FLAG = "000";
+
     // Information
     private ColorGridModel currentGrid;
     private int currentGlobalColor;
@@ -41,7 +44,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     // UI Elements
     private GridView gridView;
     private CheckBox brushChecKBox;
-    private Button colorSelectButton, saveButton, fillButton;
+    private Button colorSelectButton, connectButton, fillButton;
     private ColorPicker mColorPicker;
 
     private Context mContext;
@@ -79,8 +82,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         fillButton = (Button) findViewById(R.id.fill_button);
         fillButton.setOnClickListener(this);
 
-        saveButton = (Button) findViewById(R.id.save_button);
-        saveButton.setOnClickListener(this);
+        connectButton = (Button) findViewById(R.id.connect_button);
+        connectButton.setOnClickListener(this);
 
         // Set the default color to green
         currentGlobalColor = ContextCompat.getColor(mContext, R.color.md_green_500);
@@ -92,9 +95,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, final int i, long l) {
                 Log.i(TAG, "Grid view clicked at position " + i);
-
-                // Get the current color of the grid element
-                int currentColor = currentGrid.get(i);
 
                 // Check if painting
                 boolean isPainting = brushChecKBox.isChecked();
@@ -117,11 +117,41 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 {
                     // Change the color of the selected grid element
                     currentGrid.setColor(currentGlobalColor, i);
+                    Log.i(TAG, FILL_FLAG + getColorString());
                     mAdapter.notifyDataSetInvalidated();
                 }
 
             }
         });
+
+        connectBluetooth();
+    }
+
+    private String getColorString()
+    {
+
+        // Get Color RGB codes
+        String red =  checkColorValidString(Color.red(currentGlobalColor));
+        String green =  checkColorValidString(Color.green(currentGlobalColor));
+        String blue =  checkColorValidString(Color.blue(currentGlobalColor));
+
+        return red + green + blue;
+
+    }
+
+    private String checkColorValidString(int color)
+    {
+        String strColor = String.valueOf(color);
+        if (strColor.length() < 3)
+        {
+            int appendZeros = 3 - strColor.length();
+            for (int i = 0; i < appendZeros; i++)
+            {
+                strColor = "0" + strColor;
+            }
+        }
+
+        return strColor;
     }
 
     @Override
@@ -146,11 +176,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.fill_button:
                 currentGrid.init(currentGlobalColor);
                 mAdapter.notifyDataSetChanged();
+                if (mConnectThread != null) {
+                    mConnectThread.write("Hello World".getBytes());
+                } else {
+                    Toast.makeText(mContext, "Bluetooth connection not established!",
+                            Toast.LENGTH_SHORT).show();
+                }
                 break;
-            case R.id.save_button:
+            case R.id.connect_button:
                 Log.i(TAG, "Saving...");
-                Log.i(TAG, "Grid: " + currentGrid.toString());
-                connectBluetooth();
                 break;
         }
     }
@@ -186,7 +220,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     public void connectBluetooth()
     {
-        Toast.makeText(mContext, "Attempting to connect to device...", Toast.LENGTH_LONG).show();
+        connectButton.setEnabled(false);
+        Toast.makeText(mContext, "Attempting to connect to device...", Toast.LENGTH_SHORT).show();
+
         // Ensure we have a device to connect to
         if (mDevice == null)
         {
@@ -244,13 +280,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         Log.e(TAG, "Failed to close socket", closeException);
                     }
                 }
+                Toast.makeText(mContext, "Failed to connect the bluetooth device", Toast.LENGTH_SHORT).show();
+
+                connectButton.setEnabled(true);
                 return;
             }
 
             Toast.makeText(mContext, "Connected to: " + mDevice.getName(), Toast.LENGTH_LONG).show();
+            fillButton.setEnabled(true);
             DataThread dataThread = new DataThread(mmSocket);
             dataThread.run();
-            dataThread.write("Hello World".getBytes());
         }
 
         public void cancel()
@@ -306,10 +345,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         public void run()
         {
             mmBuffer = new byte[1024];
-            while (true)
-            {
-
-            }
             // Do nothing as we need no input stream
         }
 

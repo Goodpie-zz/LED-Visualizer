@@ -5,4 +5,5 @@
     <string name="enable_brush">Enable Brush</string>
     <string name="brush_color">Brush Color</string>
     <string name="fill">Fill</string>
+    <string name="connect">Connect</string>
 </resources>
