@@ -5,6 +5,8 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -21,18 +23,19 @@ import com.app.reallygoodpie.ledvisualalizer.models.ColorGridModel;
 import com.pes.androidmaterialcolorpickerdialog.ColorPicker;
 
 import java.io.IOException;
-import java.util.Map;
+import java.io.OutputStream;
 import java.util.Set;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
 
     public static final String TAG = "MainActivity";
+    public static final String APP_NAME = "com.brandyn.LEDVisualizer";
+    private static final UUID MY_UUID = java.util.UUID.fromString("00000000-0000-1000-8000-00805F9B34FB");
 
     // Information
     private ColorGridModel currentGrid;
     private int currentGlobalColor;
-    private Map<Integer, Integer> colorMap;
 
     // UI Elements
     private GridView gridView;
@@ -45,12 +48,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothDevice mDevice;
-    private ConnectThread mConnectThread;
+    private DataThread mConnectThread;
+    private DataThread mDataThread;
 
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mConnectThread = null;
+        mDataThread = null;
 
         mContext = getApplicationContext();
 
@@ -141,6 +148,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.save_button:
                 Log.i(TAG, "Saving...");
+                Log.i(TAG, "Grid: " + currentGrid.toString());
                 connectBluetooth();
                 break;
         }
@@ -173,9 +181,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 mDevice = device;
             }
         }
-
-
-
     }
 
     public void connectBluetooth()
@@ -187,61 +192,151 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             initBluetooth();
         }
 
-        Toast.makeText(mContext, "Connected to: " + mDevice.getName(), Toast.LENGTH_LONG).show();
-        mConnectThread = new ConnectThread(mDevice);
-        mConnectThread.start();
+
+        ConnectThread connectThread = new ConnectThread(mDevice);
+        connectThread.run();
+
     }
 
-    private class ConnectThread extends Thread {
+    private class ConnectThread extends Thread
+    {
 
-        private static final String TAG = "ConnectThread";
+        private final BluetoothSocket mmSocket;
+        private final BluetoothDevice mmDevice;
 
-        private final BluetoothSocket mSocket;
-        private final BluetoothDevice mDevice;
-        private final UUID MY_UUID;
+        public ConnectThread(BluetoothDevice device) {
 
-        public ConnectThread(BluetoothDevice device)
-        {
-            BluetoothSocket tmp = null;
-            MY_UUID = UUID.randomUUID();
-            mDevice = device;
+            // Use a temp object that is later assigned to mmSocket
+            BluetoothSocket tmpSocket = null;
+            mmDevice = device;
 
             try {
-                tmp = device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
+                // Get a bluetooth socket to connect with the given BluetoothDevice
+                tmpSocket = device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
             } catch (IOException e) {
-                Log.e(TAG, "Failed to create BluetoothSocket");
+                Log.e(TAG, "Socket's create() method failed", e);
             }
 
-            mSocket = tmp;
+            mmSocket = tmpSocket;
         }
 
         public void run()
         {
+            // Cancel discovery because it is slow af
             mBluetoothAdapter.cancelDiscovery();
+
             try {
-                mSocket.connect();
+                // Connect to remote device through the socket. This call will block until it
+                // succeeds or throws an exception
+                mmSocket.connect();
             } catch (IOException connectException) {
+                // Unable to connect; Close the socket and return
                 try {
-                    mSocket.close();
+                    mmSocket.close();
                 } catch (IOException closeException) {
-                    Log.e(TAG, "run: Failed to close socket exception");
+                    Log.e(TAG, "Could not close the client socket", closeException);
                 }
+                return;
             }
+
+            Toast.makeText(mContext, "Connected to: " + mDevice.getName(), Toast.LENGTH_LONG).show();
+            DataThread dataThread = new DataThread(mmSocket);
+            dataThread.run();
+            dataThread.write("Hello World".getBytes());
         }
 
         public void cancel()
         {
-            try
-            {
-                mSocket.close();
-            }
-            catch (IOException e)
-            {
-                Log.e(TAG, "cancel: Failed to close socket exception");
+            try {
+                mmSocket.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Could not close the client socket", e);
             }
         }
 
     }
+
+    private class DataThread extends Thread
+    {
+        private final BluetoothSocket mmSocket;
+        private final OutputStream mmOutStream;
+        private byte[] mmBuffer;
+
+        Handler mHandler = new Handler() {
+            @Override
+            public void handleMessage(Message msg) {
+                byte[] writeBuf = (byte[]) msg.obj;
+                int begin = (int)msg.arg1;
+                int end = (int)msg.arg2;
+
+                switch(msg.what) {
+                    case 1:
+                        String writeMessage = new String(writeBuf);
+                        writeMessage = writeMessage.substring(begin, end);
+                        break;
+                }
+            }
+        };
+
+
+        public DataThread(BluetoothSocket socket)
+        {
+            mmSocket = socket;
+
+            // Create output stream
+            OutputStream tmpOut = null;
+
+            try {
+                tmpOut = socket.getOutputStream();
+            } catch (IOException e) {
+                Log.e(TAG, "Error occured when creating output stream", e);
+            }
+
+            mmOutStream = tmpOut;
+        }
+
+        public void run()
+        {
+            mmBuffer = new byte[1024];
+            while (true)
+            {
+
+            }
+            // Do nothing as we need no input stream
+        }
+
+        public void write(byte[] bytes)
+        {
+            try {
+                mmOutStream.write(bytes);
+                Message writtenMsg = mHandler.obtainMessage(0,
+                        -1, -1, mmBuffer);
+                writtenMsg.sendToTarget();
+            } catch (IOException e) {
+                Log.e(TAG, "Error occurred when sending data", e);
+                // Send a failure message back to the activity.
+                Message writeErrorMsg =
+                        mHandler.obtainMessage(1);
+                Bundle bundle = new Bundle();
+                bundle.putString("toast",
+                        "Couldn't send data to the other device");
+                writeErrorMsg.setData(bundle);
+                mHandler.sendMessage(writeErrorMsg);
+            }
+        }
+
+        // Call this method from the main activity to shut down the connection.
+        public void cancel() {
+            try {
+                mmSocket.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Could not close the connect socket", e);
+            }
+        }
+
+
+    }
+
 
 
 }

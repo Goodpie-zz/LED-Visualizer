@@ -1,8 +1,8 @@
 package com.app.reallygoodpie.ledvisualalizer.models;
 
-
-import android.graphics.Color;
 import android.support.annotation.ColorInt;
+
+import java.util.Arrays;
 
 public class ColorGridModel {
 
@@ -71,5 +71,15 @@ public class ColorGridModel {
         int row = index / ROWS;
         int column = index % COLUMNS;
         colors[row][column] = color;
+    }
+
+    @Override
+    public String toString() {
+        String returnString = "ColorGridModel {\n";
+        for (int i = 0; i < COLUMNS; i ++)
+        {
+            returnString += Arrays.toString(colors[i]) + "\n";
+        }
+        return returnString;
     }
 }
