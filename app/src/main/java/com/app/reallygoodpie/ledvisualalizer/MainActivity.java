@@ -232,6 +232,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } catch (IOException connectException) {
                 // Unable to connect; Close the socket and return
                 try {
+                    Log.e(TAG, "Could not connect the socket", connectException);
                     mmSocket.close();
                 } catch (IOException closeException) {
                     Log.e(TAG, "Could not close the client socket", closeException);
