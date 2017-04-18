@@ -24,6 +24,7 @@ import com.pes.androidmaterialcolorpickerdialog.ColorPicker;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,7 +32,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     public static final String TAG = "MainActivity";
     public static final String APP_NAME = "com.brandyn.LEDVisualizer";
-    private static final UUID MY_UUID = java.util.UUID.fromString("00000000-0000-1000-8000-00805F9B34FB");
+    private static final UUID MY_UUID = java.util.UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 
     // Information
     private ColorGridModel currentGrid;
@@ -201,7 +202,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private class ConnectThread extends Thread
     {
 
-        private final BluetoothSocket mmSocket;
+        private BluetoothSocket mmSocket;
         private final BluetoothDevice mmDevice;
 
         public ConnectThread(BluetoothDevice device) {
@@ -232,10 +233,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } catch (IOException connectException) {
                 // Unable to connect; Close the socket and return
                 try {
-                    Log.e(TAG, "Could not connect the socket", connectException);
-                    mmSocket.close();
-                } catch (IOException closeException) {
-                    Log.e(TAG, "Could not close the client socket", closeException);
+                    Log.e(TAG, "Could not connect the socket. Attempting Fallback", connectException);
+                    mmSocket =(BluetoothSocket) mmDevice.getClass().getMethod("createRfcommSocket", new Class[] {int.class}).invoke(mmDevice,1);
+                    mmSocket.connect();
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | IOException fallbackException) {
+                    Log.e(TAG, "Failed fallback", fallbackException);
+                    try {
+                        mmSocket.close();
+                    } catch (IOException closeException) {
+                        Log.e(TAG, "Failed to close socket", closeException);
+                    }
                 }
                 return;
             }
