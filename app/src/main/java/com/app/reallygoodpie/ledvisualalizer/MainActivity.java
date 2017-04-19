@@ -35,6 +35,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public static final String APP_NAME = "com.brandyn.LEDVisualizer";
     private static final UUID MY_UUID = java.util.UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 
+    // Fill flag is used as a substitute for LED index
     private static final String FILL_FLAG = "000";
 
     // Information
@@ -52,8 +53,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothDevice mDevice;
-    private DataThread mConnectThread;
     private DataThread mDataThread;
+    private ConnectThread mConnectThread;
 
 
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,7 +63,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         mConnectThread = null;
         mDataThread = null;
-
         mContext = getApplicationContext();
 
         mColorPicker = new ColorPicker(MainActivity.this, 33, 159, 243);
@@ -100,58 +100,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 boolean isPainting = brushChecKBox.isChecked();
 
                 if (!isPainting) {
-                    // Onclick listener to change the currently selected block
-                    // Set the currently selected color
+                    // Not painting so bring up color picker dialog for each block selected and
+                    // change the color to the selected
                     mColorPicker.show();
                     Button okColorSelection = (Button) mColorPicker.findViewById(R.id.okColorButton);
                     okColorSelection.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
                             currentGlobalColor = mColorPicker.getColor();
-                            currentGrid.setColor(currentGlobalColor, i);
+                            updateGridElement(i);
                             mColorPicker.dismiss();
                         }
                     });
                 }
                 else
                 {
-                    // Change the color of the selected grid element
-                    currentGrid.setColor(currentGlobalColor, i);
-                    Log.i(TAG, FILL_FLAG + getColorString());
-                    mAdapter.notifyDataSetInvalidated();
+                    // Painting so change the clicked grid element to the current color without
+                    // bringing up the color picker
+                    updateGridElement(i);
                 }
-
             }
         });
-
-        connectBluetooth();
-    }
-
-    private String getColorString()
-    {
-
-        // Get Color RGB codes
-        String red =  checkColorValidString(Color.red(currentGlobalColor));
-        String green =  checkColorValidString(Color.green(currentGlobalColor));
-        String blue =  checkColorValidString(Color.blue(currentGlobalColor));
-
-        return red + green + blue;
-
-    }
-
-    private String checkColorValidString(int color)
-    {
-        String strColor = String.valueOf(color);
-        if (strColor.length() < 3)
-        {
-            int appendZeros = 3 - strColor.length();
-            for (int i = 0; i < appendZeros; i++)
-            {
-                strColor = "0" + strColor;
-            }
-        }
-
-        return strColor;
     }
 
     @Override
@@ -174,21 +143,65 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             // Fill the grid with one color
             case R.id.fill_button:
-                currentGrid.init(currentGlobalColor);
-                mAdapter.notifyDataSetChanged();
-                if (mConnectThread != null) {
-                    mConnectThread.write("Hello World".getBytes());
-                } else {
-                    Toast.makeText(mContext, "Bluetooth connection not established!",
-                            Toast.LENGTH_SHORT).show();
-                }
+                fillGrid();
                 break;
             case R.id.connect_button:
-                Log.i(TAG, "Saving...");
+                Log.i(TAG, "Attempting to make connection to bluetooth...");
+                connectBluetooth();
                 break;
         }
     }
 
+    /**
+     * Updates the grid element only if bluetooth connection has been established
+     * @param index Grid element index
+     */
+    private void updateGridElement(int index)
+    {
+        if (mDataThread != null)
+        {
+            // Send a message containing the index and color to the device
+            int deviceIndex = currentGrid.getPositionOnDevice(index);
+            String deviceIndexPad = ColorGridModel.checkValidDeviceString(deviceIndex);
+            String message = deviceIndexPad + ColorGridModel.getColorString(currentGlobalColor);
+            mDataThread.write(message.getBytes());
+
+            // Update the grid visually
+            currentGrid.setColor(currentGlobalColor, index);
+            mAdapter.notifyDataSetInvalidated();
+        }
+        else
+        {
+            // Notify the user that the device isn't connected
+            Toast.makeText(mContext, "Bluetooth connection not established!",
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Fill the grid only if the bluetooth connection has been established
+     */
+    private void fillGrid()
+    {
+        if (mDataThread != null) {
+
+            // Send fill signal to device with the color codes
+            String message = FILL_FLAG + ColorGridModel.getColorString((currentGlobalColor));
+            mDataThread.write(message.getBytes());
+
+            // Update the grid on display
+            currentGrid.init(currentGlobalColor);
+            mAdapter.notifyDataSetChanged();
+        } else {
+            // Don't do anything if Bluetooth has not been established
+            Toast.makeText(mContext, "Bluetooth connection not established!",
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Initializes the bluetooth on the device and connects to the paired device
+     */
     public void initBluetooth()
     {
         // Check if bluetooth can be enabled
@@ -208,6 +221,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         // Discover Devices
         // Assume all other devices are disconnected
+        // TODO: Create dialog for user to select device
         Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
         if (pairedDevices.size() > 0)
         {
@@ -218,9 +232,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    /**
+     * Attempt to establish a connection with a bluetooth device using a connect thread. Will
+     * first check if a device is already connected and then establish a connect thread.
+     */
     public void connectBluetooth()
     {
+        // Disable the connect button so user can't spam it
         connectButton.setEnabled(false);
+
+        // Notify the user that a connection is being attempted
         Toast.makeText(mContext, "Attempting to connect to device...", Toast.LENGTH_SHORT).show();
 
         // Ensure we have a device to connect to
@@ -229,19 +250,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             initBluetooth();
         }
 
-
-        ConnectThread connectThread = new ConnectThread(mDevice);
-        connectThread.run();
+        // Establish connect thread
+        mConnectThread = new ConnectThread(mDevice);
+        mConnectThread.run();
 
     }
 
+    /**
+     * Connect thread for establishing connection to Bluetooth device
+     */
     private class ConnectThread extends Thread
     {
 
         private BluetoothSocket mmSocket;
         private final BluetoothDevice mmDevice;
 
-        public ConnectThread(BluetoothDevice device) {
+        ConnectThread(BluetoothDevice device) {
 
             // Use a temp object that is later assigned to mmSocket
             BluetoothSocket tmpSocket = null;
@@ -254,6 +278,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Log.e(TAG, "Socket's create() method failed", e);
             }
 
+            // Establish the connection
             mmSocket = tmpSocket;
         }
 
@@ -269,27 +294,39 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } catch (IOException connectException) {
                 // Unable to connect; Close the socket and return
                 try {
+                    // Use a fall back method that should work
                     Log.e(TAG, "Could not connect the socket. Attempting Fallback", connectException);
                     mmSocket =(BluetoothSocket) mmDevice.getClass().getMethod("createRfcommSocket", new Class[] {int.class}).invoke(mmDevice,1);
                     mmSocket.connect();
                 } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | IOException fallbackException) {
                     Log.e(TAG, "Failed fallback", fallbackException);
                     try {
+                        // Attempt to close the socket
                         mmSocket.close();
                     } catch (IOException closeException) {
                         Log.e(TAG, "Failed to close socket", closeException);
                     }
                 }
-                Toast.makeText(mContext, "Failed to connect the bluetooth device", Toast.LENGTH_SHORT).show();
 
+                // Notify user that connection has failed
+                Toast.makeText(mContext, "Failed to connect the bluetooth device",
+                        Toast.LENGTH_SHORT).show();
+
+                // Re-enable the connect button so user can reattempt
                 connectButton.setEnabled(true);
+
                 return;
             }
 
-            Toast.makeText(mContext, "Connected to: " + mDevice.getName(), Toast.LENGTH_LONG).show();
-            fillButton.setEnabled(true);
-            DataThread dataThread = new DataThread(mmSocket);
-            dataThread.run();
+            // Notify the user that the connection had been established
+            Toast.makeText(mContext, "Successfully connected to: " + mDevice.getName(),
+                    Toast.LENGTH_SHORT).show();
+            connectButton.setText(("Connected to: " + mDevice.getName()));
+            connectButton.setEnabled(false);
+
+            // Establish data thread
+            mDataThread =  new DataThread(mmSocket);
+            mDataThread.run();
         }
 
         public void cancel()
@@ -326,7 +363,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         };
 
 
-        public DataThread(BluetoothSocket socket)
+        DataThread(BluetoothSocket socket)
         {
             mmSocket = socket;
 
@@ -348,7 +385,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             // Do nothing as we need no input stream
         }
 
-        public void write(byte[] bytes)
+        void write(byte[] bytes)
         {
             try {
                 mmOutStream.write(bytes);
@@ -379,7 +416,5 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     }
-
-
 
 }

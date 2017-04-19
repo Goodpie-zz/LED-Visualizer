@@ -1,5 +1,6 @@
 package com.app.reallygoodpie.ledvisualalizer.models;
 
+import android.graphics.Color;
 import android.support.annotation.ColorInt;
 
 import java.util.Arrays;
@@ -10,6 +11,42 @@ public class ColorGridModel {
     public static final int COLUMNS = 16;
 
     private int[][] colors;
+
+    /**
+     * Converts the integer color to an RGB form of RRRGGGBBB as a String
+     * @param color Color to convert
+     * @return      Color as RRRGGGBBB string
+     */
+    public static String getColorString(int color)
+    {
+
+        // Get Color RGB codes
+        String red =  checkValidDeviceString(Color.red(color));
+        String green =  checkValidDeviceString(Color.green(color));
+        String blue =  checkValidDeviceString(Color.blue(color));
+
+        return red + green + blue;
+    }
+
+    /**
+     * Pads a number less than 3 digits with 0's and returns as string
+     * @param n         number to convert to string
+     * @return          number as string in 3 characters
+     */
+    public static String checkValidDeviceString(int n)
+    {
+        String strColor = String.valueOf(n);
+        if (strColor.length() < 3)
+        {
+            int appendZeros = 3 - strColor.length();
+            for (int i = 0; i < appendZeros; i++)
+            {
+                strColor = "0" + strColor;
+            }
+        }
+
+        return strColor;
+    }
 
     public ColorGridModel()
     {
@@ -64,6 +101,18 @@ public class ColorGridModel {
     public int getSize()
     {
         return COLUMNS * ROWS;
+    }
+
+    public int getPositionOnDevice(int index)
+    {
+        int row = index / ROWS;
+        int column = index % COLUMNS;
+        if  (row  % 2 == 0)
+        {
+            column = (COLUMNS - column) - 1;
+        }
+
+        return row + column;
     }
 
     public void setColor(@ColorInt int color, int index)
