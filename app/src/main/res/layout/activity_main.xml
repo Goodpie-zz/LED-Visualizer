@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/activity_main"
     android:orientation="vertical"
@@ -19,7 +20,7 @@
         android:orientation="vertical">
 
         <LinearLayout
-            android:layout_weight="3.5"
+            android:layout_weight="4.0"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:orientation="vertical">
@@ -37,49 +38,102 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_weight="0.5"
-            android:orientation="vertical"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:orientation="vertical">
 
             <LinearLayout
-                android:layout_gravity="center"
-                android:gravity="center"
                 android:layout_width="match_parent"
-                android:orientation="horizontal"
-                android:layout_height="wrap_content">
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="horizontal">
 
                 <CheckBox
                     android:id="@+id/brush_checkbox"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/enable_brush"/>
+                    android:text="@string/enable_brush" />
 
             </LinearLayout>
 
-            <Button
-                android:id="@+id/brush_color_button"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/brush_color"/>
+                android:layout_weight="0.5"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/brush_color_button"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.5"
+                    android:text="@string/brush_color" />
+
+                <Button
+                    android:id="@+id/alarm_button"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.5"
+                    android:text="Alarm" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/fill_button"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.5"
+                    android:text="@string/fill" />
+
+                <Button
+                    android:id="@+id/time_button"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.5"
+                    android:text="Time" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/animation_button"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.5"
+                    android:text="Animation" />
+
+                <Button
+                    android:id="@+id/temp_button"
+                    android:layout_width="fill_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.5"
+                    android:text="Temperature" />
+            </LinearLayout>
 
             <Button
-                android:id="@+id/fill_button"
+                android:id="@+id/connect_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/fill"/>
-
-            <Button
-                android:text="@string/save"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:id="@+id/save_button" />
+                android:layout_weight="1"
+                android:text="@string/connect" />
 
         </LinearLayout>
 
     </LinearLayout>
 
-
-
-
 </LinearLayout>
+
+
